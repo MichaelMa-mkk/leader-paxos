@@ -52,6 +52,7 @@ void ServerWorker::SetupBase() {
   if (config->IsReplicated() &&
       config->replica_proto_ != config->tx_proto_) {
     rep_frame_ = Frame::GetFrame(config->replica_proto_);
+    Log_debug("################# replica_proto_: %d", config->replica_proto_);
     rep_frame_->site_info_ = site_info_;
     rep_sched_ = rep_frame_->CreateScheduler();
     rep_sched_->txn_reg_ = tx_reg_;

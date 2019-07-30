@@ -10,7 +10,7 @@ waf3-*-*/
 
 build/
 log/
-.pyc
+*.pyc*
 .cproject
 .project
 .settings
@@ -23,7 +23,6 @@ log/
 conf
 tmp_conf*.xml
 benchmark*.log
-log*
 .idea
 *.orig
 deptran/mdcc/mdcc_rpc.h
@@ -33,11 +32,6 @@ deptran/mdcc/mdcc_rpc.h
 *rpc.h
 *.res
 *.prof
-/buck-out/
-/.buckd/
-/buckaroo/
-BUCKAROO_DEPS
-.buckconfig.local
 tags
 GTAGS
 GRTAGS
