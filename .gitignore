@@ -10,10 +10,10 @@ waf3-*-*/
 
 build/
 log/
-*.pyc*
-.cproject
-.project
-.settings
+*.pyc
+*.cproject
+*.project
+*.settings
 *.tar*
 *.sublime*
 *.swp
@@ -29,11 +29,9 @@ deptran/mdcc/mdcc_rpc.h
 .python-version
 .ycm_extra_conf.py
 .unittest-gtest/
-*rpc.h
 *.res
 *.prof
 tags
 GTAGS
 GRTAGS
 GPATH
-/.clang-format

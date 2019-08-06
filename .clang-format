@@ -1,0 +1,8 @@
+PointerAlignment: Left
+IndentWidth: 2
+ColumnLimit: 0
+MaxEmptyLinesToKeep: 1
+AlignTrailingComments: true
+AllowShortIfStatementsOnASingleLine: true
+BreakBeforeBraces: Attach
+SortIncludes: false

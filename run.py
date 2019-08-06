@@ -702,7 +702,6 @@ class ServerController(object):
         try:
             sites = ProcessInfo.get_sites(self.process_infos,
                                           SiteInfo.SiteType.Server)
-            logger.debug("sites: " + str(sites))
             for site in sites:
                 site.connect_rpc(300)
                 logger.info("Connected to site %s @ %s", site.name, site.process.host_address)
@@ -856,8 +855,6 @@ class ServerController(object):
             cmd = self.gen_process_cmd(process, host_process_counts)
             logger.debug("running: %s", cmd)
             subprocess.call(['ssh', '-f',process.host_address, cmd])
-
-        logger.debug(self.process_infos)
 
         t_list = []
         for process_name, process in self.process_infos.items():
@@ -1031,7 +1028,6 @@ class SiteInfo:
             bind_address = "{host}:{port}".format(
                 host=self.process.host_address,
                 port=port)
-            logger.debug("SiteInfo.connect_rpc: rpc_client bind_addr: " + bind_address)
             result = self.rpc_client.connect(bind_address)
             if time.time() - connect_start > timeout:
                 raise RuntimeError("rpc connect time out")
