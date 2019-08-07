@@ -10,7 +10,7 @@
 namespace janus {
 
 MultiPaxosCommo::MultiPaxosCommo(PollMgr* poll) : Communicator(poll) {
-//  verify(poll != nullptr);
+  //  verify(poll != nullptr);
 }
 
 void MultiPaxosCommo::BroadcastPrepare(parid_t par_id,
@@ -21,7 +21,7 @@ void MultiPaxosCommo::BroadcastPrepare(parid_t par_id,
   auto proxies = rpc_par_proxies_[par_id];
   vector<Future*> fus;
   for (auto& p : proxies) {
-    auto proxy = (MultiPaxosProxy*) p.second;
+    auto proxy = (MultiPaxosProxy*)p.second;
     FutureAttr fuattr;
     fuattr.callback = cb;
     Future::safe_release(proxy->async_Prepare(slot_id, ballot, fuattr));
@@ -36,14 +36,15 @@ void MultiPaxosCommo::BroadcastAccept(parid_t par_id,
   auto proxies = rpc_par_proxies_[par_id];
   vector<Future*> fus;
   for (auto& p : proxies) {
-    auto proxy = (MultiPaxosProxy*) p.second;
+    auto proxy = (MultiPaxosProxy*)p.second;
     FutureAttr fuattr;
     fuattr.callback = cb;
     MarshallDeputy md(cmd);
     auto f = proxy->async_Accept(slot_id, ballot, md, fuattr);
     Future::safe_release(f);
+    Log_debug("MultiPaxosCommo::%s: end proxy call.", __FUNCTION__);
   }
-//  verify(0);
+  //  verify(0);
 }
 
 void MultiPaxosCommo::BroadcastDecide(const parid_t par_id,
@@ -53,7 +54,7 @@ void MultiPaxosCommo::BroadcastDecide(const parid_t par_id,
   auto proxies = rpc_par_proxies_[par_id];
   vector<Future*> fus;
   for (auto& p : proxies) {
-    auto proxy = (MultiPaxosProxy*) p.second;
+    auto proxy = (MultiPaxosProxy*)p.second;
     FutureAttr fuattr;
     fuattr.callback = [](Future* fu) {};
     MarshallDeputy md(cmd);
