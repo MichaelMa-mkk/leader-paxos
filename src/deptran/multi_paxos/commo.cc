@@ -42,7 +42,6 @@ void MultiPaxosCommo::BroadcastAccept(parid_t par_id,
     MarshallDeputy md(cmd);
     auto f = proxy->async_Accept(slot_id, ballot, md, fuattr);
     Future::safe_release(f);
-    Log_debug("MultiPaxosCommo::%s: end proxy call.", __FUNCTION__);
   }
   //  verify(0);
 }

@@ -29,7 +29,6 @@ void MultiPaxosServiceImpl::Accept(const uint64_t& slot,
                                    const MarshallDeputy& md_cmd,
                                    ballot_t* max_ballot,
                                    rrr::DeferredReply* defer) {
-  Log_debug("%s: enter in.", __FUNCTION__);
   verify(sched_ != nullptr);
   Coroutine::CreateRun([&] () {
     sched_->OnAccept(slot,
