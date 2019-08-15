@@ -74,6 +74,9 @@ int main(int argc, char* argv[]) {
   for (auto& worker : pxs_workers_g) {
     worker->SubmitExample();
   }
+  for (auto& worker : pxs_workers_g) {
+    worker->SubmitExample();
+  }
 
   for (auto& worker : pxs_workers_g) {
     worker->WaitForShutdown();
