@@ -6,7 +6,7 @@
 //#include "all.h"
 #include "msg.h"
 #include "communicator.h"
-#include "client_worker.h"
+// #include "client_worker.h"
 
 namespace janus {
 class ClientControlServiceImpl;
