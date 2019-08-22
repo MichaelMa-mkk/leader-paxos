@@ -55,6 +55,7 @@ void CoordinatorMultiPaxos::Prepare() {
                                       this,
                                       phase_,
                                       std::placeholders::_1));
+  site_prepare_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
@@ -96,6 +97,7 @@ void CoordinatorMultiPaxos::Accept() {
                                      this,
                                      phase_,
                                      std::placeholders::_1));
+  site_piece_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
@@ -129,6 +131,7 @@ void CoordinatorMultiPaxos::Commit() {
             (int) par_id_, (int) slot_id_);
   commo()->BroadcastDecide(par_id_, slot_id_, curr_ballot_, cmd_);
   verify(phase_ == Phase::COMMIT);
+  site_commit_[loc_id_]++;
   GotoNextPhase();
 }
 

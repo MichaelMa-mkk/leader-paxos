@@ -1,8 +1,6 @@
 #include "paxos_worker.h"
 #include "service.h"
 
-#include "procedure.h"
-
 namespace janus {
 
 static int volatile xx =
@@ -12,12 +10,15 @@ static int volatile xx =
                                    });
 
 Marshal& LogEntry::ToMarshal(Marshal& m) const {
-  m << *operation_;
+  m << std::string(operation_);
   return m;
 };
 
 Marshal& LogEntry::FromMarshal(Marshal& m) {
-  m >> *operation_;
+  std::string str;
+  m >> str;
+  operation_ = new char[str.size() + 1];
+  strcpy(operation_, str.c_str());
   return m;
 };
 
@@ -30,7 +31,15 @@ void PaxosWorker::SetupBase() {
   rep_sched_->loc_id_ = site_info_->locale_id;
 }
 
-void PaxosWorker::Next(shared_ptr<map<int32_t, int64_t>> log_entry) {
+void PaxosWorker::Next(Marshallable& cmd) {
+  if (cmd.kind_ == MarshallDeputy::CONTAINER_CMD) {
+    if (this->callback_ != nullptr) {
+      auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
+      callback_(sp_log_entry.operation_);
+    }
+  } else {
+    verify(0);
+  }
   finish_mutex.lock();
   if (n_current > 0) {
     n_current--;
@@ -137,37 +146,21 @@ void PaxosWorker::ShutDown() {
     delete service;
   }
   thread_pool_g->release();
+  for (auto c : created_coordinators_) {
+    delete c;
+  }
+  if (rep_sched_ != nullptr) {
+    delete rep_sched_;
+  }
 }
 
-void PaxosWorker::Submit(shared_ptr<map<int32_t, int64_t>> log_entry) {
-  finish_mutex.lock();
-  n_current++;
-  finish_mutex.unlock();
-  static cooid_t cid = 0;
-  static id_t id = 0;
-  verify(rep_frame_ != nullptr);
-  verify(rep_sched_->apply_callback_ != nullptr);
-  Coordinator* coord = rep_frame_->CreateCoordinator(cid++,
-                                                     Config::GetConfig(),
-                                                     0,
-                                                     nullptr,
-                                                     id++,
-                                                     nullptr);
-  coord->par_id_ = site_info_->partition_id_;
-  coord->loc_id_ = site_info_->locale_id;
-  auto sp_cmd = make_shared<LogEntry>();
-  *(sp_cmd->operation_) = *log_entry;
-  auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
-  coord->Submit(sp_m);
-}
-
-void PaxosWorker::SubmitExample() {
+void PaxosWorker::Submit(const char* log_entry) {
   if (!IsLeader()) return;
-  // TODO
-  auto testdata = make_shared<map<int32_t, int64_t>>();
-  (*testdata)[0] = 100;
-  (*testdata)[1] = 233;
-  Submit(testdata);
+  auto sp_cmd = make_shared<LogEntry>();
+  sp_cmd->operation_ = new char[strlen(log_entry) + 1];
+  strcpy(sp_cmd->operation_, log_entry);
+  auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
+  _Submit(sp_m);
 
   finish_mutex.lock();
   while (n_current > 0) {
@@ -178,21 +171,42 @@ void PaxosWorker::SubmitExample() {
   Log_debug("finish command replicated.");
 }
 
+void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
+  finish_mutex.lock();
+  n_current++;
+  finish_mutex.unlock();
+  static cooid_t cid = 0;
+  static id_t id = 0;
+  verify(rep_frame_ != nullptr);
+  Coordinator* coord = rep_frame_->CreateCoordinator(cid++,
+                                                     Config::GetConfig(),
+                                                     0,
+                                                     nullptr,
+                                                     id++,
+                                                     nullptr);
+  coord->par_id_ = site_info_->partition_id_;
+  coord->loc_id_ = site_info_->locale_id;
+  created_coordinators_.push_back(coord);
+  coord->Submit(sp_m);
+}
+
+void PaxosWorker::SubmitExample() {
+  char testdata[] = "abc";
+  Submit(testdata);
+}
+
 bool PaxosWorker::IsLeader() {
   verify(rep_frame_ != nullptr);
   verify(rep_frame_->site_info_ != nullptr);
   return rep_frame_->site_info_->locale_id == 0;
 }
 
-void PaxosWorker::register_apply_callback(std::function<void(shared_ptr<map<int32_t, int64_t>>)> cb) {
+void PaxosWorker::register_apply_callback(std::function<void(char*)> cb) {
+  this->callback_ = cb;
   verify(rep_sched_ != nullptr);
-  if (cb == nullptr) {
-    rep_sched_->RegLearnerAction(std::bind(&PaxosWorker::Next,
-                                           this,
-                                           std::placeholders::_1));
-  } else {
-    rep_sched_->RegLearnerAction(cb);
-  }
+  rep_sched_->RegLearnerAction(std::bind(&PaxosWorker::Next,
+                                         this,
+                                         std::placeholders::_1));
 }
 
 } // namespace janus

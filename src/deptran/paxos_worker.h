@@ -12,17 +12,27 @@ namespace janus {
 
 class LogEntry : public Marshallable {
 public:
-  shared_ptr<map<int32_t, int64_t>> operation_{};
+  char* operation_ = nullptr;
 
-  LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {
-    operation_ = make_shared<map<int32_t, int64_t>>();
+  LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {}
+  virtual ~LogEntry(){
+    if (operation_ != nullptr) delete operation_;
   }
-  virtual ~LogEntry() {};
   virtual Marshal& ToMarshal(Marshal&) const override;
   virtual Marshal& FromMarshal(Marshal&) override;
 };
 
 class PaxosWorker {
+private:
+  void _Submit(shared_ptr<Marshallable>);
+  bool IsLeader();
+
+  rrr::Mutex finish_mutex{};
+  rrr::CondVar finish_cond{};
+  uint32_t n_current = 0;
+  std::function<void(char*)> callback_ = nullptr;
+  vector<Coordinator*> created_coordinators_{};
+
 public:
   rrr::PollMgr* svr_poll_mgr_ = nullptr;
   vector<rrr::Service*> services_ = {};
@@ -39,24 +49,19 @@ public:
   Scheduler* rep_sched_ = nullptr;
   Communicator* rep_commo_ = nullptr;
 
-  rrr::Mutex finish_mutex{};
-  rrr::CondVar finish_cond{};
-  uint32_t n_current = 0;
-
   void SetupHeartbeat();
   void SetupBase();
   void SetupService();
   void SetupCommo();
   void ShutDown();
-  void Next(shared_ptr<map<int32_t, int64_t>>);
+  void Next(Marshallable&);
 
   static const uint32_t CtrlPortDelta = 10000;
   void WaitForShutdown();
 
   void SubmitExample();
-  void Submit(shared_ptr<map<int32_t, int64_t>>);
-  bool IsLeader();
-  void register_apply_callback(std::function<void(shared_ptr<map<int32_t, int64_t>>)>);
+  void Submit(const char*);
+  void register_apply_callback(std::function<void(char*)>);
 };
 
 } // namespace janus

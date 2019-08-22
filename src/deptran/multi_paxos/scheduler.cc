@@ -1,5 +1,5 @@
 
-#include "paxos_worker.h"
+// #include "paxos_worker.h"
 #include "scheduler.h"
 #include "exec.h"
 
@@ -21,6 +21,7 @@ void SchedulerMultiPaxos::OnPrepare(slotid_t slot_id,
     verify(0);
   }
   *max_ballot = instance->max_ballot_seen_;
+  n_prepare_++;
   cb();
 }
 
@@ -41,6 +42,7 @@ void SchedulerMultiPaxos::OnAccept(const slotid_t slot_id,
     verify(0);
   }
   *max_ballot = instance->max_ballot_seen_;
+  n_accept_++;
   cb();
 }
 
@@ -58,15 +60,10 @@ void SchedulerMultiPaxos::OnCommit(const slotid_t slot_id,
   for (slotid_t id = max_executed_slot_ + 1; id <= max_committed_slot_; id++) {
     auto next_instance = GetInstance(id);
     if (next_instance->committed_cmd_) {
-      if (next_instance->committed_cmd_->kind_ == MarshallDeputy::CONTAINER_CMD) {
-        auto& sp_log_entry = dynamic_cast<LogEntry&>(*next_instance->committed_cmd_);
-        apply_callback_(sp_log_entry.operation_);
-        Log_debug("paxos-lib executed slot %d now", id);
-      } else {
-        app_next_(*next_instance->committed_cmd_);
-        Log_debug("multi-paxos executed slot %d now", id);
-      }
+      app_next_(*next_instance->committed_cmd_);
+      Log_debug("multi-paxos par:%d loc:%d executed slot %d now", partition_id_, loc_id_, id);
       max_executed_slot_++;
+      n_commit_++;
     } else {
       break;
     }

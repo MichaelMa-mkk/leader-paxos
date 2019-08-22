@@ -1,11 +1,11 @@
 #include "paxos_worker.h"
-#include "client_worker.h"
+// #include "client_worker.h"
 #include "config.h"
 
 using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
-vector<unique_ptr<ClientWorker>> client_workers_g = {};
+// vector<unique_ptr<ClientWorker>> client_workers_g = {};
 
 void check_current_path() {
   auto path = boost::filesystem::current_path();
@@ -15,7 +15,7 @@ void check_current_path() {
 void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   auto config = Config::GetConfig();
   Log_info("server enabled, number of sites: %d", server_sites.size());
-  for (int i = server_sites.size(); i ; --i) {
+  for (int i = server_sites.size(); i; --i) {
     PaxosWorker* worker = new PaxosWorker();
     pxs_workers_g.push_back(std::unique_ptr<PaxosWorker>(worker));
   }
@@ -37,7 +37,9 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
       // setup communicator
       worker->SetupCommo();
       // register callback
-      worker->register_apply_callback(nullptr);
+      worker->register_apply_callback([=](char* log) {
+        Log_debug("!!!!!!!!!!!!!!!!!!!!%s!!!!!!!!!!!!!!!!", log);
+      });
       Log_info("site %d launched!", (int)site_info.id);
     }));
   }
@@ -55,6 +57,12 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
+void microbench_paxos() {
+  for (auto& worker : pxs_workers_g) {
+    worker->SubmitExample();
+  }
+}
+
 int main(int argc, char* argv[]) {
   check_current_path();
   Log_info("starting process %ld", getpid());
@@ -70,13 +78,7 @@ int main(int argc, char* argv[]) {
     server_launch_worker(server_infos);
   }
 
-  //----------------------work---------------------
-  for (auto& worker : pxs_workers_g) {
-    worker->SubmitExample();
-  }
-  for (auto& worker : pxs_workers_g) {
-    worker->SubmitExample();
-  }
+  microbench_paxos();
 
   for (auto& worker : pxs_workers_g) {
     worker->WaitForShutdown();

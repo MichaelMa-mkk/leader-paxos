@@ -52,7 +52,7 @@ int Config::CreateConfig(int argc, char **argv) {
 //  std::string filename = "./config/sample.yml";
   vector<string> config_paths;
   std::string proc_name = "localhost"; // default as "localhost"
-  std::string logging_path = "./disk_log/";
+  std::string logging_path = "./log/";
   char *end_ptr    = NULL;
 
   char *hostspath               = NULL;
