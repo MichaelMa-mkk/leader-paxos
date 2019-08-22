@@ -38,6 +38,12 @@ public:
   vector<rrr::Service*> services_ = {};
   rrr::Server* rpc_server_ = nullptr;
   base::ThreadPool* thread_pool_g = nullptr;
+  int submit_tot_sec_ = 0;
+  int submit_tot_usec_ = 0;
+  int commit_tot_sec_ = 0;
+  int commit_tot_usec_ = 0;
+  struct timeval commit_time_;
+  struct timeval leader_commit_time_;
 
   rrr::PollMgr* svr_hb_poll_mgr_g = nullptr;
   ServerControlServiceImpl* scsi_ = nullptr;

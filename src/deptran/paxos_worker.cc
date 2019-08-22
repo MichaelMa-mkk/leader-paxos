@@ -32,6 +32,9 @@ void PaxosWorker::SetupBase() {
 }
 
 void PaxosWorker::Next(Marshallable& cmd) {
+  // if (IsLeader()) {
+    gettimeofday(&commit_time_, NULL);
+  // }
   if (cmd.kind_ == MarshallDeputy::CONTAINER_CMD) {
     if (this->callback_ != nullptr) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
@@ -146,15 +149,28 @@ void PaxosWorker::ShutDown() {
     delete service;
   }
   thread_pool_g->release();
+  int prepare_tot_sec_ = 0, prepare_tot_usec_ = 0, accept_tot_sec_ = 0, accept_tot_usec_ = 0;
   for (auto c : created_coordinators_) {
+    prepare_tot_sec_ += c->prepare_sec_;
+    prepare_tot_usec_ += c->prepare_usec_;
+    accept_tot_sec_ += c->accept_sec_;
+    accept_tot_usec_ += c->accept_usec_;
     delete c;
   }
+  Log_info("site %s, tot time: %f, prepare: %f, accept: %f, commit: %f", site_info_->name.c_str(),
+           submit_tot_sec_ + ((float)submit_tot_usec_) / 1000000,
+           prepare_tot_sec_ + ((float)prepare_tot_usec_) / 1000000,
+           accept_tot_sec_ + ((float)accept_tot_usec_) / 1000000,
+           commit_tot_sec_ + ((float)commit_tot_usec_) / 1000000);
   if (rep_sched_ != nullptr) {
     delete rep_sched_;
   }
 }
 
 void PaxosWorker::Submit(const char* log_entry) {
+  struct timeval t1;
+  struct timeval t2;
+  gettimeofday(&t1, NULL);
   if (!IsLeader()) return;
   auto sp_cmd = make_shared<LogEntry>();
   sp_cmd->operation_ = new char[strlen(log_entry) + 1];
@@ -162,12 +178,11 @@ void PaxosWorker::Submit(const char* log_entry) {
   auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
   _Submit(sp_m);
 
-  finish_mutex.lock();
-  while (n_current > 0) {
-    Log_debug("wait for command replicated, amount: %d", n_current);
-    finish_cond.wait(finish_mutex);
-  }
-  finish_mutex.unlock();
+  gettimeofday(&t2, NULL);
+  submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
+  submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
+  commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
+  commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
   Log_debug("finish command replicated.");
 }
 
@@ -188,6 +203,14 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   coord->loc_id_ = site_info_->locale_id;
   created_coordinators_.push_back(coord);
   coord->Submit(sp_m);
+
+  finish_mutex.lock();
+  while (n_current > 0) {
+    Log_debug("wait for command replicated, amount: %d", n_current);
+    finish_cond.wait(finish_mutex);
+  }
+  finish_mutex.unlock();
+  leader_commit_time_ = coord->commit_time_;
 }
 
 void PaxosWorker::SubmitExample() {

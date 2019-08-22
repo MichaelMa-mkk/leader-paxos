@@ -1,6 +1,7 @@
 #include "paxos_worker.h"
 // #include "client_worker.h"
 #include "config.h"
+#include <sys/time.h>
 
 using namespace janus;
 
@@ -38,7 +39,7 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
       worker->SetupCommo();
       // register callback
       worker->register_apply_callback([=](char* log) {
-        Log_debug("!!!!!!!!!!!!!!!!!!!!%s!!!!!!!!!!!!!!!!", log);
+        // Log_info("!!!!!!!!!!!!!!!!!!!!%s!!!!!!!!!!!!!!!!", log);
       });
       Log_info("site %d launched!", (int)site_info.id);
     }));
@@ -57,9 +58,24 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
+char message[11];
 void microbench_paxos() {
-  for (auto& worker : pxs_workers_g) {
-    worker->SubmitExample();
+  srand(time(NULL));
+  int st = 0;
+  message[10] = '\0';
+  while (1) {
+    for (int i = 0; i < 10; i++) {
+      message[i] = (rand() % 10) + '0';
+    }
+    for (auto& worker : pxs_workers_g) {
+      worker->Submit(message);
+    }
+    if (pxs_workers_g[0]->submit_tot_sec_ - st > 1) {
+      Log_info("1 second passed.");
+      st = pxs_workers_g[0]->submit_tot_sec_;
+    }
+    if (pxs_workers_g[0]->submit_tot_sec_ > 10)
+      break;
   }
 }
 

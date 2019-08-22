@@ -24,7 +24,7 @@ void CoordinatorMultiPaxos::Submit(shared_ptr<Marshallable>& cmd,
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   verify(!in_submission_);
   verify(cmd_ == nullptr);
-//  verify(cmd.self_cmd_ != nullptr);
+  //  verify(cmd.self_cmd_ != nullptr);
   in_submission_ = true;
   cmd_ = cmd;
   verify(cmd_->kind_ != MarshallDeputy::UNKNOWN);
@@ -38,13 +38,13 @@ ballot_t CoordinatorMultiPaxos::PickBallot() {
 
 void CoordinatorMultiPaxos::Prepare() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
-  verify(0); // for debug;
+  gettimeofday(&prepare_time_, NULL);
   verify(!in_prepare_);
   in_prepare_ = true;
   curr_ballot_ = PickBallot();
   verify(slot_id_ > 0);
   Log_debug("multi-paxos coordinator broadcasts prepare, "
-                "par_id_: %lx, slot_id: %llx",
+            "par_id_: %lx, slot_id: %llx",
             par_id_,
             slot_id_);
   verify(n_prepare_ack_ == 0);
@@ -55,7 +55,6 @@ void CoordinatorMultiPaxos::Prepare() {
                                       this,
                                       phase_,
                                       std::placeholders::_1));
-  site_prepare_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
@@ -67,6 +66,10 @@ void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
     n_prepare_ack_++;
     verify(n_prepare_ack_ <= n_replica_);
     if (n_prepare_ack_ >= GetQuorum()) {
+      struct timeval temp;
+      gettimeofday(&temp, NULL);
+      prepare_sec_ += temp.tv_sec - prepare_time_.tv_sec;
+      prepare_usec_ += temp.tv_usec - prepare_time_.tv_usec;
       GotoNextPhase();
     }
   } else {
@@ -75,6 +78,10 @@ void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
       Log_debug("%s: saw greater ballot increment to %d",
                 __FUNCTION__, curr_ballot_);
       phase_ = Phase::INIT_END;
+      struct timeval temp;
+      gettimeofday(&temp, NULL);
+      prepare_sec_ += temp.tv_sec - prepare_time_.tv_sec;
+      prepare_usec_ += temp.tv_usec - prepare_time_.tv_usec;
       GotoNextPhase();
     } else {
       // max_ballot < curr_ballot ignore
@@ -84,10 +91,11 @@ void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
 
 void CoordinatorMultiPaxos::Accept() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
+  gettimeofday(&accept_time_, NULL);
   verify(!in_accept);
   in_accept = true;
   Log_debug("multi-paxos coordinator broadcasts accept, "
-                "par_id_: %lx, slot_id: %llx",
+            "par_id_: %lx, slot_id: %llx",
             par_id_, slot_id_);
   commo()->BroadcastAccept(par_id_,
                            slot_id_,
@@ -97,7 +105,6 @@ void CoordinatorMultiPaxos::Accept() {
                                      this,
                                      phase_,
                                      std::placeholders::_1));
-  site_piece_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
@@ -109,6 +116,10 @@ void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
     n_finish_ack_++;
     if (n_finish_ack_ >= GetQuorum()) {
       committed_ = true;
+      struct timeval temp;
+      gettimeofday(&temp, NULL);
+      accept_sec_ += temp.tv_sec - accept_time_.tv_sec;
+      accept_usec_ += temp.tv_usec - accept_time_.tv_usec;
       GotoNextPhase();
     }
   } else {
@@ -117,6 +128,10 @@ void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
       Log_debug("%s: saw greater ballot increment to %d",
                 __FUNCTION__, curr_ballot_);
       phase_ = Phase::INIT_END;
+      struct timeval temp;
+      gettimeofday(&temp, NULL);
+      accept_sec_ += temp.tv_sec - accept_time_.tv_sec;
+      accept_usec_ += temp.tv_usec - accept_time_.tv_usec;
       GotoNextPhase();
     } else {
       // max_ballot < curr_ballot ignore
@@ -127,11 +142,11 @@ void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
 void CoordinatorMultiPaxos::Commit() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   commit_callback_();
+  gettimeofday(&commit_time_, NULL);
   Log_debug("multi-paxos broadcast commit for partition: %d, slot %d",
-            (int) par_id_, (int) slot_id_);
+            (int)par_id_, (int)slot_id_);
   commo()->BroadcastDecide(par_id_, slot_id_, curr_ballot_, cmd_);
   verify(phase_ == Phase::COMMIT);
-  site_commit_[loc_id_]++;
   GotoNextPhase();
 }
 
@@ -139,31 +154,31 @@ void CoordinatorMultiPaxos::GotoNextPhase() {
   int n_phase = 4;
   int current_phase = phase_ % n_phase;
   switch (phase_++ % n_phase) {
-    case Phase::INIT_END:
-      if (IsLeader()) {
-        phase_++;
-        Accept();
-      } else {
-        Prepare();
-      }
-      break;
-    case Phase::ACCEPT:
-      verify(phase_ % n_phase == Phase::COMMIT);
-      if (committed_) {
-        Commit();
-      } else {
-        verify(0);
-      }
-      break;
-    case Phase::PREPARE:
-      verify(phase_ % n_phase == Phase::ACCEPT);
-      Accept();
-      break;
-    case Phase::COMMIT:
-      // do nothing.
-      break;
-    default:
+  case Phase::INIT_END:
+    // if (IsLeader()) {
+    //   phase_++;
+    //   Accept();
+    // } else {
+      Prepare();
+    // }
+    break;
+  case Phase::ACCEPT:
+    verify(phase_ % n_phase == Phase::COMMIT);
+    if (committed_) {
+      Commit();
+    } else {
       verify(0);
+    }
+    break;
+  case Phase::PREPARE:
+    verify(phase_ % n_phase == Phase::ACCEPT);
+    Accept();
+    break;
+  case Phase::COMMIT:
+    // do nothing.
+    break;
+  default:
+    verify(0);
   }
 }
 
