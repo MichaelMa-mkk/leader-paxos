@@ -55,6 +55,7 @@ void CoordinatorMultiPaxos::Prepare() {
                                       this,
                                       phase_,
                                       std::placeholders::_1));
+  site_prepare_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
@@ -105,6 +106,7 @@ void CoordinatorMultiPaxos::Accept() {
                                      this,
                                      phase_,
                                      std::placeholders::_1));
+  site_piece_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
@@ -143,10 +145,11 @@ void CoordinatorMultiPaxos::Commit() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   commit_callback_();
   gettimeofday(&commit_time_, NULL);
-  Log_debug("multi-paxos broadcast commit for partition: %d, slot %d",
+  Log_debug("multi-paxos broadcast commit for partition: %llx, slot %llx",
             (int)par_id_, (int)slot_id_);
   commo()->BroadcastDecide(par_id_, slot_id_, curr_ballot_, cmd_);
   verify(phase_ == Phase::COMMIT);
+  site_commit_[loc_id_]++;
   GotoNextPhase();
 }
 
@@ -159,7 +162,7 @@ void CoordinatorMultiPaxos::GotoNextPhase() {
     //   phase_++;
     //   Accept();
     // } else {
-      Prepare();
+    Prepare();
     // }
     break;
   case Phase::ACCEPT:

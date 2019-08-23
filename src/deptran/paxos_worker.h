@@ -13,6 +13,7 @@ namespace janus {
 class LogEntry : public Marshallable {
 public:
   char* operation_ = nullptr;
+  int length = 0;
 
   LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {}
   virtual ~LogEntry(){
@@ -30,8 +31,10 @@ private:
   rrr::Mutex finish_mutex{};
   rrr::CondVar finish_cond{};
   uint32_t n_current = 0;
-  std::function<void(char*)> callback_ = nullptr;
+  std::function<void(char*, int)> callback_ = nullptr;
   vector<Coordinator*> created_coordinators_{};
+  // vector<rrr::Mutex> thread_mutex{};
+  // vector<rrr::CondVar> thread_cond{};
 
 public:
   rrr::PollMgr* svr_poll_mgr_ = nullptr;
@@ -66,8 +69,8 @@ public:
   void WaitForShutdown();
 
   void SubmitExample();
-  void Submit(const char*);
-  void register_apply_callback(std::function<void(char*)>);
+  void Submit(const char*, int);
+  void register_apply_callback(std::function<void(char*, int)>);
 };
 
 } // namespace janus

@@ -10,14 +10,16 @@ static int volatile xx =
                                    });
 
 Marshal& LogEntry::ToMarshal(Marshal& m) const {
+  m << length;
   m << std::string(operation_);
   return m;
 };
 
 Marshal& LogEntry::FromMarshal(Marshal& m) {
+  m >> length;
   std::string str;
   m >> str;
-  operation_ = new char[str.size() + 1];
+  operation_ = new char[length];
   strcpy(operation_, str.c_str());
   return m;
 };
@@ -38,7 +40,7 @@ void PaxosWorker::Next(Marshallable& cmd) {
   if (cmd.kind_ == MarshallDeputy::CONTAINER_CMD) {
     if (this->callback_ != nullptr) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
-      callback_(sp_log_entry.operation_);
+      callback_(sp_log_entry.operation_, sp_log_entry.length);
     }
   } else {
     verify(0);
@@ -46,9 +48,7 @@ void PaxosWorker::Next(Marshallable& cmd) {
   finish_mutex.lock();
   if (n_current > 0) {
     n_current--;
-    if (n_current == 0) {
-      finish_cond.signal();
-    }
+    finish_cond.signal();
   }
   finish_mutex.unlock();
 }
@@ -167,14 +167,15 @@ void PaxosWorker::ShutDown() {
   }
 }
 
-void PaxosWorker::Submit(const char* log_entry) {
+void PaxosWorker::Submit(const char* log_entry, int length) {
   struct timeval t1;
   struct timeval t2;
   gettimeofday(&t1, NULL);
   if (!IsLeader()) return;
   auto sp_cmd = make_shared<LogEntry>();
-  sp_cmd->operation_ = new char[strlen(log_entry) + 1];
+  sp_cmd->operation_ = new char[length];
   strcpy(sp_cmd->operation_, log_entry);
+  sp_cmd->length = length;
   auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
   _Submit(sp_m);
 
@@ -183,7 +184,6 @@ void PaxosWorker::Submit(const char* log_entry) {
   submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
   commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
   commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
-  Log_debug("finish command replicated.");
 }
 
 void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
@@ -205,17 +205,18 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   coord->Submit(sp_m);
 
   finish_mutex.lock();
-  while (n_current > 0) {
+  if (n_current > 0) {
     Log_debug("wait for command replicated, amount: %d", n_current);
     finish_cond.wait(finish_mutex);
   }
   finish_mutex.unlock();
+  Log_debug("finish command replicated.");
   leader_commit_time_ = coord->commit_time_;
 }
 
 void PaxosWorker::SubmitExample() {
   char testdata[] = "abc";
-  Submit(testdata);
+  Submit(testdata, 4);
 }
 
 bool PaxosWorker::IsLeader() {
@@ -224,7 +225,7 @@ bool PaxosWorker::IsLeader() {
   return rep_frame_->site_info_->locale_id == 0;
 }
 
-void PaxosWorker::register_apply_callback(std::function<void(char*)> cb) {
+void PaxosWorker::register_apply_callback(std::function<void(char*, int)> cb) {
   this->callback_ = cb;
   verify(rep_sched_ != nullptr);
   rep_sched_->RegLearnerAction(std::bind(&PaxosWorker::Next,

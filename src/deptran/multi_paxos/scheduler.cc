@@ -61,7 +61,7 @@ void SchedulerMultiPaxos::OnCommit(const slotid_t slot_id,
     auto next_instance = GetInstance(id);
     if (next_instance->committed_cmd_) {
       app_next_(*next_instance->committed_cmd_);
-      Log_debug("multi-paxos par:%d loc:%d executed slot %d now", partition_id_, loc_id_, id);
+      Log_debug("multi-paxos par:%d loc:%d executed slot %lx now", partition_id_, loc_id_, id);
       max_executed_slot_++;
       n_commit_++;
     } else {
