@@ -59,26 +59,17 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
 }
 
 void microbench_paxos() {
-  srand(time(NULL));
-  vector<std::thread> setup_ths;
-  for (int i = 0; i < 1; i++) {
-    setup_ths.push_back(std::thread([]() {
-      const int len = 500, num = 30000;
-      char message[len];
-      int T = num;
-      while (T-- > 0) {
-        if (T % (num / 5) == 0) Log_info("%d%% finished", (num - T) * 100 / num);
-        for (int i = 0; i < len; i++) {
-          message[i] = (rand() % 10) + '0';
-        }
-        for (auto& worker : pxs_workers_g) {
-          worker->Submit(message, len);
-        }
-      }
-    }));
-  }
-  for (auto& th : setup_ths) {
-    th.join();
+  const int len = 10, num = 500000;
+  char message[len];
+  int T = num;
+  while (T-- > 0) {
+    if (T % (num / 5) == 0) Log_info("%d%% finished", (num - T) * 100 / num);
+    for (int i = 0; i < len; i++) {
+      message[i] = (rand() % 10) + '0';
+    }
+    for (auto& worker : pxs_workers_g) {
+      worker->Submit(message, len);
+    }
   }
 }
 

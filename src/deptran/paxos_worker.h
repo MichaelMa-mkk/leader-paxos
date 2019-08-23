@@ -33,8 +33,8 @@ private:
   uint32_t n_current = 0;
   std::function<void(char*, int)> callback_ = nullptr;
   vector<Coordinator*> created_coordinators_{};
-  // vector<rrr::Mutex> thread_mutex{};
-  // vector<rrr::CondVar> thread_cond{};
+  struct timeval t1;
+  struct timeval t2;
 
 public:
   rrr::PollMgr* svr_poll_mgr_ = nullptr;

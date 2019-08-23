@@ -168,9 +168,6 @@ void PaxosWorker::ShutDown() {
 }
 
 void PaxosWorker::Submit(const char* log_entry, int length) {
-  struct timeval t1;
-  struct timeval t2;
-  gettimeofday(&t1, NULL);
   if (!IsLeader()) return;
   auto sp_cmd = make_shared<LogEntry>();
   sp_cmd->operation_ = new char[length];
@@ -178,12 +175,6 @@ void PaxosWorker::Submit(const char* log_entry, int length) {
   sp_cmd->length = length;
   auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
   _Submit(sp_m);
-
-  gettimeofday(&t2, NULL);
-  submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
-  submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
-  commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
-  commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
 }
 
 void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
@@ -202,6 +193,7 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   coord->par_id_ = site_info_->partition_id_;
   coord->loc_id_ = site_info_->locale_id;
   created_coordinators_.push_back(coord);
+  gettimeofday(&t1, NULL);
   coord->Submit(sp_m);
 
   finish_mutex.lock();
@@ -211,7 +203,13 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   }
   finish_mutex.unlock();
   Log_debug("finish command replicated.");
+  
+  gettimeofday(&t2, NULL);
   leader_commit_time_ = coord->commit_time_;
+  submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
+  submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
+  commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
+  commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
 }
 
 void PaxosWorker::SubmitExample() {
