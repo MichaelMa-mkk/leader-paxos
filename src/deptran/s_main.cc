@@ -58,18 +58,30 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
+const int len = 10, num = 500000, concurrent = 32;
+char* message[concurrent];
 void microbench_paxos() {
-  const int len = 10, num = 500000;
-  char message[len];
   int T = num;
-  while (T-- > 0) {
-    if (T % (num / 5) == 0) Log_info("%d%% finished", (num - T) * 100 / num);
-    for (int i = 0; i < len; i++) {
-      message[i] = (rand() % 10) + '0';
+  while (T > 0) {
+    struct timeval t1, t2;
+    gettimeofday(&t1, NULL);
+    for (int i = 0; i < concurrent; i++) {
+      message[i] = new char[len];
+      for (int j = 0; j < len; j++) {
+        message[i][j] = (rand() % 10) + '0';
+      }
+      for (auto& worker : pxs_workers_g) {
+        worker->Submit(message[i], len);
+      }
     }
     for (auto& worker : pxs_workers_g) {
-      worker->Submit(message, len);
+      worker->WaitForSubmit();
     }
+    gettimeofday(&t2, NULL);
+    pxs_workers_g[0]->submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
+    pxs_workers_g[0]->submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
+    T -= concurrent;
+    // if ((num - T) % (concurrent * 10) == 0) Log_info("%d%% finished", (num - T) * 100 / num);
   }
 }
 
@@ -88,12 +100,7 @@ int main(int argc, char* argv[]) {
     server_launch_worker(server_infos);
   }
 
-  // struct timeval t1, t2;
-  // gettimeofday(&t1, NULL);
   microbench_paxos();
-  // gettimeofday(&t2, NULL);
-  // pxs_workers_g[0]->submit_tot_sec_ = t2.tv_sec - t1.tv_sec;
-  // pxs_workers_g[0]->submit_tot_usec_ = t2.tv_usec - t1.tv_usec;
 
   for (auto& worker : pxs_workers_g) {
     worker->WaitForShutdown();
@@ -108,6 +115,9 @@ int main(int argc, char* argv[]) {
   }
   pxs_workers_g.clear();
 
+  for (int i = 0; i < concurrent; i++) {
+    delete message[i];
+  }
   RandomGenerator::destroy();
   Config::DestroyConfig();
 

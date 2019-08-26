@@ -35,7 +35,7 @@ void PaxosWorker::SetupBase() {
 
 void PaxosWorker::Next(Marshallable& cmd) {
   // if (IsLeader()) {
-    gettimeofday(&commit_time_, NULL);
+  gettimeofday(&commit_time_, NULL);
   // }
   if (cmd.kind_ == MarshallDeputy::CONTAINER_CMD) {
     if (this->callback_ != nullptr) {
@@ -167,6 +167,16 @@ void PaxosWorker::ShutDown() {
   }
 }
 
+void PaxosWorker::WaitForSubmit() {
+  finish_mutex.lock();
+  while (n_current > 0) {
+    Log_debug("wait for task, amount: %d", n_current);
+    finish_cond.wait(finish_mutex);
+  }
+  finish_mutex.unlock();
+  Log_debug("finish task.");
+}
+
 void PaxosWorker::Submit(const char* log_entry, int length) {
   if (!IsLeader()) return;
   auto sp_cmd = make_shared<LogEntry>();
@@ -193,21 +203,21 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   coord->par_id_ = site_info_->partition_id_;
   coord->loc_id_ = site_info_->locale_id;
   created_coordinators_.push_back(coord);
-  gettimeofday(&t1, NULL);
+  // gettimeofday(&t1, NULL);
   coord->Submit(sp_m);
 
-  finish_mutex.lock();
-  if (n_current > 0) {
-    Log_debug("wait for command replicated, amount: %d", n_current);
-    finish_cond.wait(finish_mutex);
-  }
-  finish_mutex.unlock();
-  Log_debug("finish command replicated.");
-  
-  gettimeofday(&t2, NULL);
+  // finish_mutex.lock();
+  // if (n_current > 0) {
+  //   Log_debug("wait for command replicated, amount: %d", n_current);
+  //   finish_cond.wait(finish_mutex);
+  // }
+  // finish_mutex.unlock();
+  // Log_debug("finish command replicated.");
+
+  // gettimeofday(&t2, NULL);
   leader_commit_time_ = coord->commit_time_;
-  submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
-  submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
+  // submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
+  // submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
   commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
   commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
 }

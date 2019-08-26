@@ -64,6 +64,7 @@ public:
   void SetupCommo();
   void ShutDown();
   void Next(Marshallable&);
+  void WaitForSubmit();
 
   static const uint32_t CtrlPortDelta = 10000;
   void WaitForShutdown();
