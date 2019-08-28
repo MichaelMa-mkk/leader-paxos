@@ -30,8 +30,10 @@ private:
 
   rrr::Mutex finish_mutex{};
   rrr::CondVar finish_cond{};
+  std::mutex coordinator_mutex{};
   uint32_t n_current = 0;
   std::function<void(char*, int)> callback_ = nullptr;
+  vector<Coordinator*> free_coordinators_{};
   vector<Coordinator*> created_coordinators_{};
   struct timeval t1;
   struct timeval t2;
@@ -64,7 +66,9 @@ public:
   void SetupCommo();
   void ShutDown();
   void Next(Marshallable&);
+  void FreeCoordinator(Coordinator*);
   void WaitForSubmit();
+  Coordinator* FindOrCreateCoordinator();
 
   static const uint32_t CtrlPortDelta = 10000;
   void WaitForShutdown();

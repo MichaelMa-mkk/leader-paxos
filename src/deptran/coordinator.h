@@ -140,6 +140,10 @@ class Coordinator {
                       const std::function<void()>& exe_callback = [](){}) {
     verify(0);
   }
+  virtual void Submit_(shared_ptr<Marshallable>& cmd,
+                      std::function<void(Coordinator*)> commit_callback) {
+    verify(0);
+  }
   virtual void Reset() {
     committed_ = false;
     aborted_ = false;

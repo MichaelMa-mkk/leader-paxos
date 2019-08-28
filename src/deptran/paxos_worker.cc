@@ -61,7 +61,7 @@ void PaxosWorker::SetupService() {
     services_ = rep_frame_->CreateRpcServices(site_info_->id,
                                               rep_sched_,
                                               svr_poll_mgr_,
-                                              nullptr);
+                                              scsi_);
   }
   uint32_t num_threads = 1;
   thread_pool_g = new base::ThreadPool(num_threads);
@@ -151,10 +151,10 @@ void PaxosWorker::ShutDown() {
   thread_pool_g->release();
   int prepare_tot_sec_ = 0, prepare_tot_usec_ = 0, accept_tot_sec_ = 0, accept_tot_usec_ = 0;
   for (auto c : created_coordinators_) {
-    prepare_tot_sec_ += c->prepare_sec_;
-    prepare_tot_usec_ += c->prepare_usec_;
-    accept_tot_sec_ += c->accept_sec_;
-    accept_tot_usec_ += c->accept_usec_;
+    // prepare_tot_sec_ += c->prepare_sec_;
+    // prepare_tot_usec_ += c->prepare_usec_;
+    // accept_tot_sec_ += c->accept_sec_;
+    // accept_tot_usec_ += c->accept_usec_;
     delete c;
   }
   Log_info("site %s, tot time: %f, prepare: %f, accept: %f, commit: %f", site_info_->name.c_str(),
@@ -177,6 +177,41 @@ void PaxosWorker::WaitForSubmit() {
   Log_debug("finish task.");
 }
 
+void PaxosWorker::FreeCoordinator(Coordinator* coo) {
+  Log_debug("%s: coo_id %d", __FUNCTION__, coo->coo_id_);
+  std::lock_guard<std::mutex> lock(coordinator_mutex);
+  free_coordinators_.push_back(coo);
+}
+
+Coordinator* PaxosWorker::FindOrCreateCoordinator() {
+  std::lock_guard<std::mutex> lock(coordinator_mutex);
+  static cooid_t cid = 0;
+  static id_t id = 0;
+  Coordinator* coo = nullptr;
+
+  if (free_coordinators_.size() > 0) {
+    coo = dynamic_cast<Coordinator*>(free_coordinators_.back());
+    free_coordinators_.pop_back();
+  } else {
+    if (created_coordinators_.size() == UINT16_MAX) {
+      return nullptr;
+    }
+    verify(created_coordinators_.size() <= UINT16_MAX);
+    verify(rep_frame_ != nullptr);
+    coo = rep_frame_->CreateCoordinator(cid++,
+                                        Config::GetConfig(),
+                                        0,
+                                        nullptr,
+                                        id++,
+                                        nullptr);
+    coo->par_id_ = site_info_->partition_id_;
+    coo->loc_id_ = site_info_->locale_id;
+    created_coordinators_.push_back(coo);
+  }
+
+  return coo;
+}
+
 void PaxosWorker::Submit(const char* log_entry, int length) {
   if (!IsLeader()) return;
   auto sp_cmd = make_shared<LogEntry>();
@@ -191,35 +226,14 @@ void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   finish_mutex.lock();
   n_current++;
   finish_mutex.unlock();
-  static cooid_t cid = 0;
-  static id_t id = 0;
-  verify(rep_frame_ != nullptr);
-  Coordinator* coord = rep_frame_->CreateCoordinator(cid++,
-                                                     Config::GetConfig(),
-                                                     0,
-                                                     nullptr,
-                                                     id++,
-                                                     nullptr);
-  coord->par_id_ = site_info_->partition_id_;
-  coord->loc_id_ = site_info_->locale_id;
-  created_coordinators_.push_back(coord);
-  // gettimeofday(&t1, NULL);
-  coord->Submit(sp_m);
+  auto coord = FindOrCreateCoordinator();
+  coord->Submit_(sp_m, std::bind(&PaxosWorker::FreeCoordinator,
+                                 this,
+                                 std::placeholders::_1));
 
-  // finish_mutex.lock();
-  // if (n_current > 0) {
-  //   Log_debug("wait for command replicated, amount: %d", n_current);
-  //   finish_cond.wait(finish_mutex);
-  // }
-  // finish_mutex.unlock();
-  // Log_debug("finish command replicated.");
-
-  // gettimeofday(&t2, NULL);
-  leader_commit_time_ = coord->commit_time_;
-  // submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
-  // submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
-  commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
-  commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
+  // leader_commit_time_ = coord->commit_time_;
+  // commit_tot_sec_ += commit_time_.tv_sec - leader_commit_time_.tv_sec;
+  // commit_tot_usec_ += commit_time_.tv_usec - leader_commit_time_.tv_usec;
 }
 
 void PaxosWorker::SubmitExample() {

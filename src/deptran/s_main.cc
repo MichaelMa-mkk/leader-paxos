@@ -3,6 +3,9 @@
 #include "config.h"
 #include <sys/time.h>
 
+#ifdef CPU_PROFILE
+#include <gperftools/profiler.h>
+#endif // ifdef CPU_PROFILE
 using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
@@ -58,18 +61,32 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
-const int len = 10, num = 500000, concurrent = 32;
+const int len = 10, num = 4, concurrent = 2;
 char* message[concurrent];
 void microbench_paxos() {
+  verify(concurrent > 0);
+  // for (uint32_t i = 0; i < concurrent; i++) {
+  //   auto coo = pxs_workers_g[0]->FindOrCreateCoordinator();
+  //   Coroutine::CreateRun([=]() {
+  //     message[i] = new char[len];
+  //     for (int j = 0; j < len; j++) {
+  //       message[i][j] = (rand() % 10) + '0';
+  //     }
+  //     for (auto& worker : pxs_workers_g) {
+  //       worker->Submit(message[i], len);
+  //     }
+  //   });
+  // }
   int T = num;
   while (T > 0) {
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (int i = 0; i < concurrent; i++) {
       message[i] = new char[len];
-      for (int j = 0; j < len; j++) {
+      for (int j = 0; j < len - 1; j++) {
         message[i][j] = (rand() % 10) + '0';
       }
+      message[i][len - 1] = '\0';
       for (auto& worker : pxs_workers_g) {
         worker->Submit(message[i], len);
       }
@@ -81,7 +98,6 @@ void microbench_paxos() {
     pxs_workers_g[0]->submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
     pxs_workers_g[0]->submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
     T -= concurrent;
-    // if ((num - T) % (concurrent * 10) == 0) Log_info("%d%% finished", (num - T) * 100 / num);
   }
 }
 
@@ -100,11 +116,22 @@ int main(int argc, char* argv[]) {
     server_launch_worker(server_infos);
   }
 
+#ifdef CPU_PROFILE
+  char prof_file[1024];
+  Config::GetConfig()->GetProfilePath(prof_file);
+  // start to profile
+  ProfilerStart(prof_file);
+  // ProfilerStart("thread_new");
+#endif // ifdef CPU_PROFILE
   microbench_paxos();
 
   for (auto& worker : pxs_workers_g) {
     worker->WaitForShutdown();
   }
+#ifdef CPU_PROFILE
+  // stop profiling
+  ProfilerStop();
+#endif // ifdef CPU_PROFILE
   Log_info("all server workers have shut down.");
 
   fflush(stderr);

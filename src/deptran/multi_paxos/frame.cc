@@ -41,11 +41,11 @@ Coordinator *MultiPaxosFrame::CreateCoordinator(cooid_t coo_id,
   verify(commo_ != nullptr);
   coo->commo_ = commo_;
   coo->slot_hint_ = &slot_hint_;
-  coo->slot_id_ = slot_hint_++;
+  // coo->slot_id_ = slot_hint_++;
   coo->n_replica_ = config->GetPartitionSize(site_info_->partition_id_);
   coo->loc_id_ = this->site_info_->locale_id;
   verify(coo->n_replica_ != 0); // TODO
-  Log_debug("create new multi-paxos coord, slot_id: %d", (int) coo->slot_id_);
+  Log_debug("create new multi-paxos coord, coo_id: %d", (int) coo->coo_id_);
   return coo;
 }
 

@@ -24,11 +24,33 @@ void CoordinatorMultiPaxos::Submit(shared_ptr<Marshallable>& cmd,
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   verify(!in_submission_);
   verify(cmd_ == nullptr);
+  GetNextSlot();
   //  verify(cmd.self_cmd_ != nullptr);
   in_submission_ = true;
   cmd_ = cmd;
   verify(cmd_->kind_ != MarshallDeputy::UNKNOWN);
   commit_callback_ = func;
+  GotoNextPhase();
+}
+
+void CoordinatorMultiPaxos::Submit_(shared_ptr<Marshallable>& cmd,
+                                    std::function<void(Coordinator*)> func) {
+  if (!IsLeader()) {
+    Log_fatal("i am not the leader; site %d; locale %d",
+              frame_->site_info_->id, loc_id_);
+  }
+
+  std::lock_guard<std::recursive_mutex> lock(mtx_);
+  verify(!in_submission_);
+  GetNextSlot();
+  Log_debug("submit for coo_id: %d, slot_id: %d", coo_id_, slot_id_);
+  Log_debug("submit phase: %d", phase_ % 4);
+  //  verify(cmd.self_cmd_ != nullptr);
+  in_submission_ = true;
+  cmd_ = cmd;
+  verify(cmd_->kind_ != MarshallDeputy::UNKNOWN);
+  free_callback_ = func;
+  commit_callback_ = []() {};
   GotoNextPhase();
 }
 
@@ -44,7 +66,7 @@ void CoordinatorMultiPaxos::Prepare() {
   curr_ballot_ = PickBallot();
   verify(slot_id_ > 0);
   Log_debug("multi-paxos coordinator broadcasts prepare, "
-            "par_id_: %lx, slot_id: %llx",
+            "par_id_: %d, slot_id: %d",
             par_id_,
             slot_id_);
   verify(n_prepare_ack_ == 0);
@@ -94,8 +116,9 @@ void CoordinatorMultiPaxos::Accept() {
   gettimeofday(&accept_time_, NULL);
   verify(!in_accept);
   in_accept = true;
+  Log_debug("accept phase: %d", phase_ % 4);
   Log_debug("multi-paxos coordinator broadcasts accept, "
-            "par_id_: %lx, slot_id: %llx",
+            "par_id_: %d, slot_id: %d",
             par_id_, slot_id_);
   commo()->BroadcastAccept(par_id_,
                            slot_id_,
@@ -105,6 +128,7 @@ void CoordinatorMultiPaxos::Accept() {
                                      this,
                                      phase_,
                                      std::placeholders::_1));
+  site_prepare_[loc_id_]++;
 }
 
 void CoordinatorMultiPaxos::AcceptAck(phase_t phase, Future* fu) {
@@ -143,11 +167,17 @@ void CoordinatorMultiPaxos::Commit() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   commit_callback_();
   gettimeofday(&commit_time_, NULL);
-  Log_debug("multi-paxos broadcast commit for partition: %llx, slot %llx",
+  Log_debug("commit phase: %d", phase_ % 4);
+  Log_debug("multi-paxos broadcast commit for partition: %d, slot %d",
             (int)par_id_, (int)slot_id_);
   commo()->BroadcastDecide(par_id_, slot_id_, curr_ballot_, cmd_);
+  site_commit_[loc_id_]++;
   verify(phase_ == Phase::COMMIT);
   GotoNextPhase();
+  in_submission_ = false;
+  in_accept = false;
+  in_prepare_ = false;
+  free_callback_(this);
 }
 
 void CoordinatorMultiPaxos::GotoNextPhase() {

@@ -23,6 +23,7 @@ class CoordinatorMultiPaxos : public Coordinator {
   bool in_prepare_ = false; // debug
   bool in_accept = false; // debug
  public:
+  std::function<void(Coordinator*)> free_callback_ = nullptr;
   shared_ptr<Marshallable> cmd_{nullptr};
   CoordinatorMultiPaxos(uint32_t coo_id,
                         int32_t benchmark,
@@ -48,7 +49,7 @@ class CoordinatorMultiPaxos : public Coordinator {
   }
 
   slotid_t GetNextSlot() {
-    verify(0);
+    // verify(0);
     verify(slot_hint_ != nullptr);
     slot_id_ = (*slot_hint_)++;
     return 0;
@@ -62,6 +63,8 @@ class CoordinatorMultiPaxos : public Coordinator {
   void Submit(shared_ptr<Marshallable> &cmd,
               const std::function<void()> &func = []() {},
               const std::function<void()> &exe_callback = []() {}) override;
+  void Submit_(shared_ptr<Marshallable>& cmd,
+                      std::function<void(Coordinator*)> func) override;
 
   ballot_t PickBallot();
   void Prepare();
