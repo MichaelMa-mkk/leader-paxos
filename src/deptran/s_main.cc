@@ -11,7 +11,7 @@ using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
 // vector<unique_ptr<ClientWorker>> client_workers_g = {};
-const int len = 10, num = 500, concurrent = 2;
+const int len = 10, num = 500000, concurrent = 16;
 
 void check_current_path() {
   auto path = boost::filesystem::current_path();
