@@ -37,3 +37,4 @@ GRTAGS
 GPATH
 .vscode/
 cpu*
+*.pdf
