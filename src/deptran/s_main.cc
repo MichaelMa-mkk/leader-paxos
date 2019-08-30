@@ -11,7 +11,7 @@ using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
 // vector<unique_ptr<ClientWorker>> client_workers_g = {};
-const int len = 10, num = 500000, concurrent = 16;
+const int len = 10, concurrent = 32;
 
 void check_current_path() {
   auto path = boost::filesystem::current_path();
@@ -43,7 +43,8 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
       // setup communicator
       worker->SetupCommo();
       // register callback
-      worker->register_apply_callback([&worker](char* log, int len) {
+      int num = config->get_tot_req();
+      worker->register_apply_callback([&worker, &num](char* log, int len) {
         if (worker->submit_num >= num) return;
         worker->Submit(log, len);
         worker->submit_num++;
