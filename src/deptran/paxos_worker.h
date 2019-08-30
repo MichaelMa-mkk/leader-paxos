@@ -26,7 +26,6 @@ public:
 class PaxosWorker {
 private:
   void _Submit(shared_ptr<Marshallable>);
-  bool IsLeader();
 
   rrr::Mutex finish_mutex{};
   rrr::CondVar finish_cond{};
@@ -43,6 +42,7 @@ public:
   base::ThreadPool* thread_pool_g = nullptr;
   // for microbench
   std::atomic<int> submit_num{0};
+  int tot_num = 0;
   int submit_tot_sec_ = 0;
   int submit_tot_usec_ = 0;
   int commit_tot_sec_ = 0;
@@ -70,6 +70,7 @@ public:
 
   static const uint32_t CtrlPortDelta = 10000;
   void WaitForShutdown();
+  bool IsLeader();
 
   void SubmitExample();
   void Submit(const char*, int);

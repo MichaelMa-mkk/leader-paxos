@@ -31,11 +31,12 @@ void PaxosWorker::SetupBase() {
   rep_sched_ = rep_frame_->CreateScheduler();
   // rep_sched_->txn_reg_ = tx_reg_;
   rep_sched_->loc_id_ = site_info_->locale_id;
+  this->tot_num = config->get_tot_req();
 }
 
 void PaxosWorker::Next(Marshallable& cmd) {
   // if (IsLeader()) {
-  gettimeofday(&commit_time_, NULL);
+  // gettimeofday(&commit_time_, NULL);
   // }
   if (cmd.kind_ == MarshallDeputy::CONTAINER_CMD) {
     if (this->callback_ != nullptr) {
