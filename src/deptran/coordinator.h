@@ -38,11 +38,8 @@ class Coordinator {
   bool batch_optimal_ = false;
   bool retry_wait_;
   // for testbench
-  struct timeval prepare_time_;
   struct timeval accept_time_;
   struct timeval commit_time_;
-  int prepare_sec_ = 0;
-  int prepare_usec_ = 0;
   int accept_sec_ = 0;
   int accept_usec_ = 0;
 

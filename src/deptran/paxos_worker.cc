@@ -48,7 +48,7 @@ void PaxosWorker::Next(Marshallable& cmd) {
   finish_mutex.lock();
   if (n_current > 0) {
     n_current--;
-    finish_cond.signal();
+    if (n_current == 0) finish_cond.signal();
   }
   finish_mutex.unlock();
 }
@@ -149,12 +149,10 @@ void PaxosWorker::ShutDown() {
     delete service;
   }
   thread_pool_g->release();
-  int prepare_tot_sec_ = 0, prepare_tot_usec_ = 0, accept_tot_sec_ = 0, accept_tot_usec_ = 0;
+  int accept_tot_sec_ = 0, accept_tot_usec_ = 0;
   for (auto c : created_coordinators_) {
-    // prepare_tot_sec_ += c->prepare_sec_;
-    // prepare_tot_usec_ += c->prepare_usec_;
-    // accept_tot_sec_ += c->accept_sec_;
-    // accept_tot_usec_ += c->accept_usec_;
+    accept_tot_sec_ += c->accept_sec_;
+    accept_tot_usec_ += c->accept_usec_;
     delete c;
   }
   Log_info("site %s, tot time: %f, prepare: %f, accept: %f, commit: %f", site_info_->name.c_str(),
@@ -214,12 +212,17 @@ Coordinator* PaxosWorker::FindOrCreateCoordinator() {
 
 void PaxosWorker::Submit(const char* log_entry, int length) {
   if (!IsLeader()) return;
+  struct timeval t1, t2;
+  gettimeofday(&t1, NULL);
   auto sp_cmd = make_shared<LogEntry>();
   sp_cmd->operation_ = new char[length];
   strcpy(sp_cmd->operation_, log_entry);
   sp_cmd->length = length;
   auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
   _Submit(sp_m);
+  gettimeofday(&t2, NULL);
+  prepare_tot_sec_ += t2.tv_sec - t1.tv_sec;
+  prepare_tot_usec_ += t2.tv_usec - t2.tv_usec;
 }
 
 void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {

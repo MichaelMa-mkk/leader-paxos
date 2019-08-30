@@ -43,6 +43,8 @@ public:
   vector<rrr::Service*> services_ = {};
   rrr::Server* rpc_server_ = nullptr;
   base::ThreadPool* thread_pool_g = nullptr;
+  int prepare_tot_sec_ = 0;
+  int prepare_tot_usec_ = 0;
   int submit_tot_sec_ = 0;
   int submit_tot_usec_ = 0;
   int commit_tot_sec_ = 0;

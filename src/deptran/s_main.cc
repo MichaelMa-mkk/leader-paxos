@@ -1,5 +1,5 @@
 #include "paxos_worker.h"
-// #include "client_worker.h"
+#include "client_worker.h"
 #include "config.h"
 #include <sys/time.h>
 
@@ -9,7 +9,7 @@
 using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
-// vector<unique_ptr<ClientWorker>> client_workers_g = {};
+vector<unique_ptr<ClientWorker>> client_workers_g = {};
 
 void check_current_path() {
   auto path = boost::filesystem::current_path();
@@ -61,34 +61,25 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
-const int len = 10, num = 4, concurrent = 2;
+const int len = 10, num = 1000000, concurrent = 100;
 char* message[concurrent];
 void microbench_paxos() {
   verify(concurrent > 0);
-  // for (uint32_t i = 0; i < concurrent; i++) {
-  //   auto coo = pxs_workers_g[0]->FindOrCreateCoordinator();
-  //   Coroutine::CreateRun([=]() {
-  //     message[i] = new char[len];
-  //     for (int j = 0; j < len; j++) {
-  //       message[i][j] = (rand() % 10) + '0';
-  //     }
-  //     for (auto& worker : pxs_workers_g) {
-  //       worker->Submit(message[i], len);
-  //     }
-  //   });
-  // }
   int T = num;
+  for (int i = 0; i < concurrent; i++) {
+    message[i] = new char[len];
+    for (int j = 0; j < len - 1; j++) {
+      message[i][j] = (rand() % 10) + '0';
+    }
+    message[i][len - 1] = '\0';
+  }
   while (T > 0) {
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
-    for (int i = 0; i < concurrent; i++) {
-      message[i] = new char[len];
-      for (int j = 0; j < len - 1; j++) {
-        message[i][j] = (rand() % 10) + '0';
-      }
-      message[i][len - 1] = '\0';
+    int i = 0;
+    for (int k = 0; k < concurrent; k++) {
       for (auto& worker : pxs_workers_g) {
-        worker->Submit(message[i], len);
+        worker->Submit(message[i++], len);
       }
     }
     for (auto& worker : pxs_workers_g) {
@@ -98,6 +89,9 @@ void microbench_paxos() {
     pxs_workers_g[0]->submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
     pxs_workers_g[0]->submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
     T -= concurrent;
+  }
+  for (int i = 0; i < concurrent; i++) {
+    delete message[i];
   }
 }
 
@@ -142,9 +136,6 @@ int main(int argc, char* argv[]) {
   }
   pxs_workers_g.clear();
 
-  for (int i = 0; i < concurrent; i++) {
-    delete message[i];
-  }
   RandomGenerator::destroy();
   Config::DestroyConfig();
 

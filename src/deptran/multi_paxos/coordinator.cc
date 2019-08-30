@@ -44,7 +44,6 @@ void CoordinatorMultiPaxos::Submit_(shared_ptr<Marshallable>& cmd,
   verify(!in_submission_);
   GetNextSlot();
   Log_debug("submit for coo_id: %d, slot_id: %d", coo_id_, slot_id_);
-  Log_debug("submit phase: %d", phase_ % 4);
   //  verify(cmd.self_cmd_ != nullptr);
   in_submission_ = true;
   cmd_ = cmd;
@@ -60,7 +59,6 @@ ballot_t CoordinatorMultiPaxos::PickBallot() {
 
 void CoordinatorMultiPaxos::Prepare() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
-  gettimeofday(&prepare_time_, NULL);
   verify(!in_prepare_);
   in_prepare_ = true;
   curr_ballot_ = PickBallot();
@@ -90,8 +88,6 @@ void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
     if (n_prepare_ack_ >= GetQuorum()) {
       struct timeval temp;
       gettimeofday(&temp, NULL);
-      prepare_sec_ += temp.tv_sec - prepare_time_.tv_sec;
-      prepare_usec_ += temp.tv_usec - prepare_time_.tv_usec;
       GotoNextPhase();
     }
   } else {
@@ -102,8 +98,6 @@ void CoordinatorMultiPaxos::PrepareAck(phase_t phase, Future* fu) {
       phase_ = Phase::INIT_END;
       struct timeval temp;
       gettimeofday(&temp, NULL);
-      prepare_sec_ += temp.tv_sec - prepare_time_.tv_sec;
-      prepare_usec_ += temp.tv_usec - prepare_time_.tv_usec;
       GotoNextPhase();
     } else {
       // max_ballot < curr_ballot ignore
@@ -116,7 +110,6 @@ void CoordinatorMultiPaxos::Accept() {
   gettimeofday(&accept_time_, NULL);
   verify(!in_accept);
   in_accept = true;
-  Log_debug("accept phase: %d", phase_ % 4);
   Log_debug("multi-paxos coordinator broadcasts accept, "
             "par_id_: %d, slot_id: %d",
             par_id_, slot_id_);
@@ -167,12 +160,11 @@ void CoordinatorMultiPaxos::Commit() {
   std::lock_guard<std::recursive_mutex> lock(mtx_);
   commit_callback_();
   gettimeofday(&commit_time_, NULL);
-  Log_debug("commit phase: %d", phase_ % 4);
   Log_debug("multi-paxos broadcast commit for partition: %d, slot %d",
             (int)par_id_, (int)slot_id_);
   commo()->BroadcastDecide(par_id_, slot_id_, curr_ballot_, cmd_);
   site_commit_[loc_id_]++;
-  verify(phase_ == Phase::COMMIT);
+  verify(phase_ % 4 == Phase::COMMIT);
   GotoNextPhase();
   in_submission_ = false;
   in_accept = false;
