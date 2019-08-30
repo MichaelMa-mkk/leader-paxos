@@ -16,7 +16,7 @@ public:
   int length = 0;
 
   LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {}
-  virtual ~LogEntry(){
+  virtual ~LogEntry() {
     if (operation_ != nullptr) delete operation_;
   }
   virtual Marshal& ToMarshal(Marshal&) const override;
@@ -41,6 +41,8 @@ public:
   vector<rrr::Service*> services_ = {};
   rrr::Server* rpc_server_ = nullptr;
   base::ThreadPool* thread_pool_g = nullptr;
+  // for microbench
+  std::atomic<int> submit_num{0};
   int submit_tot_sec_ = 0;
   int submit_tot_usec_ = 0;
   int commit_tot_sec_ = 0;
