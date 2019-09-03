@@ -44,11 +44,12 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
       worker->SetupCommo();
       // register callback
       if (worker->IsLeader())
-        worker->register_apply_callback([&worker](char* log, int len) {
-          if (worker->submit_num >= worker->tot_num) return;
-          worker->Submit(log, len);
-          worker->submit_num++;
-        });
+        // worker->register_apply_callback([&worker](char* log, int len) {
+        //   if (worker->submit_num >= worker->tot_num) return;
+        //   worker->Submit(log, len);
+        //   worker->submit_num++;
+        // });
+        worker->register_apply_callback(nullptr);
       else
         worker->register_apply_callback([=](char* log, int len) {});
       Log_info("site %d launched!", (int)site_info.id);
@@ -92,6 +93,10 @@ void microbench_paxos() {
   gettimeofday(&t2, NULL);
   pxs_workers_g[0]->submit_tot_sec_ += t2.tv_sec - t1.tv_sec;
   pxs_workers_g[0]->submit_tot_usec_ += t2.tv_usec - t1.tv_usec;
+
+  for (int i = 0; i < concurrent; i++) {
+    delete message[i];
+  }
   //   T -= concurrent;
   // }
 }
@@ -137,9 +142,6 @@ int main(int argc, char* argv[]) {
   }
   pxs_workers_g.clear();
 
-  for (int i = 0; i < concurrent; i++) {
-    delete message[i];
-  }
   RandomGenerator::destroy();
   Config::DestroyConfig();
 

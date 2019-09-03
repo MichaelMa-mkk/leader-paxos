@@ -42,6 +42,12 @@ void PaxosWorker::Next(Marshallable& cmd) {
     if (this->callback_ != nullptr) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
       callback_(sp_log_entry.operation_, sp_log_entry.length);
+    } else if (this->submit_num < this->tot_num) {
+      auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
+      auto sp_cmd = make_shared<LogEntry>(sp_log_entry);
+      auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
+      _Submit(sp_m);
+      this->submit_num++;
     }
   } else {
     verify(0);

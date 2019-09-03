@@ -18,6 +18,7 @@ public:
   LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {}
   virtual ~LogEntry() {
     if (operation_ != nullptr) delete operation_;
+    operation_ = nullptr;
   }
   virtual Marshal& ToMarshal(Marshal&) const override;
   virtual Marshal& FromMarshal(Marshal&) override;
