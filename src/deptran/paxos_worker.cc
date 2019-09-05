@@ -44,9 +44,27 @@ void PaxosWorker::Next(Marshallable& cmd) {
       callback_(sp_log_entry.operation_, sp_log_entry.length);
     } else if (this->submit_num < this->tot_num) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
-      auto sp_cmd = make_shared<LogEntry>(sp_log_entry);
+      auto sp_cmd = make_shared<LogEntry>();
+      sp_cmd->operation_ = new char[sp_log_entry.length];
+      strcpy(sp_cmd->operation_, sp_log_entry.operation_);
+      sp_cmd->length = sp_log_entry.length;
       auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
-      _Submit(sp_m);
+      finish_mutex.lock();
+      n_current++;
+      finish_mutex.unlock();
+      static cooid_t cid = 100;
+      static id_t id = 100;
+      verify(rep_frame_ != nullptr);
+      Coordinator* coord = rep_frame_->CreateCoordinator(cid++,
+                                                         Config::GetConfig(),
+                                                         0,
+                                                         nullptr,
+                                                         id++,
+                                                         nullptr);
+      coord->par_id_ = site_info_->partition_id_;
+      coord->loc_id_ = site_info_->locale_id;
+      created_coordinators_.push_back(coord);
+      coord->Submit(sp_m);
       this->submit_num++;
     }
   } else {
@@ -194,7 +212,7 @@ void PaxosWorker::Submit(const char* log_entry, int length) {
   _Submit(sp_m);
 }
 
-void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
+inline void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
   finish_mutex.lock();
   n_current++;
   finish_mutex.unlock();

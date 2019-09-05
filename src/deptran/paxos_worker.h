@@ -26,7 +26,7 @@ public:
 
 class PaxosWorker {
 private:
-  void _Submit(shared_ptr<Marshallable>);
+  inline void _Submit(shared_ptr<Marshallable>);
 
   rrr::Mutex finish_mutex{};
   rrr::CondVar finish_cond{};
