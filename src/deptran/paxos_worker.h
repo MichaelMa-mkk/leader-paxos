@@ -14,6 +14,7 @@ class LogEntry : public Marshallable {
 public:
   char* operation_ = nullptr;
   int length = 0;
+  std::string log_entry;
 
   LogEntry() : Marshallable(MarshallDeputy::CONTAINER_CMD) {}
   virtual ~LogEntry() {
@@ -31,7 +32,7 @@ private:
   rrr::Mutex finish_mutex{};
   rrr::CondVar finish_cond{};
   uint32_t n_current = 0;
-  std::function<void(char*, int)> callback_ = nullptr;
+  std::function<void(const char*, int)> callback_ = nullptr;
   vector<Coordinator*> created_coordinators_{};
   struct timeval t1;
   struct timeval t2;
@@ -75,7 +76,7 @@ public:
 
   void SubmitExample();
   void Submit(const char*, int);
-  void register_apply_callback(std::function<void(char*, int)>);
+  void register_apply_callback(std::function<void(const char*, int)>);
 };
 
 } // namespace janus

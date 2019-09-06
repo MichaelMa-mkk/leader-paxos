@@ -11,7 +11,7 @@ using namespace janus;
 
 static vector<unique_ptr<PaxosWorker>> pxs_workers_g = {};
 // vector<unique_ptr<ClientWorker>> client_workers_g = {};
-const int len = 10, concurrent = 32;
+const int len = 5;
 
 void check_current_path() {
   auto path = boost::filesystem::current_path();
@@ -51,7 +51,7 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
         // });
         worker->register_apply_callback(nullptr);
       else
-        worker->register_apply_callback([=](char* log, int len) {});
+        worker->register_apply_callback([=](const char* log, int len) {});
       Log_info("site %d launched!", (int)site_info.id);
     }));
   }
@@ -69,13 +69,17 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
   Log_info("server workers' communicators setup");
 }
 
-char* message[concurrent];
+char* message[200];
 void microbench_paxos() {
+  int concurrent = Config::GetConfig()->get_concurrent_txn();
   // int T = num;
   // while (T > 0) {
   for (int i = 0; i < concurrent; i++) {
     message[i] = new char[len];
-    for (int j = 0; j < len - 1; j++) {
+    message[i][0] = (i / 100) + '0';
+    message[i][1] = ((i / 10) % 10) + '0';
+    message[i][2] = (i % 10) + '0';
+    for (int j = 3; j < len - 1; j++) {
       message[i][j] = (rand() % 10) + '0';
     }
     message[i][len - 1] = '\0';
