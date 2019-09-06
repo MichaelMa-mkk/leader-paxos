@@ -44,38 +44,18 @@ void PaxosWorker::Next(Marshallable& cmd) {
       callback_(sp_log_entry.operation_, sp_log_entry.length);
     } else if (this->submit_num < this->tot_num) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
-      auto sp_cmd = make_shared<LogEntry>();
-      sp_cmd->operation_ = new char[sp_log_entry.length];
-      strcpy(sp_cmd->operation_, sp_log_entry.operation_);
-      sp_cmd->length = sp_log_entry.length;
-      auto sp_m = dynamic_pointer_cast<Marshallable>(sp_cmd);
-      finish_mutex.lock();
-      n_current++;
-      finish_mutex.unlock();
-      static cooid_t cid = 100;
-      static id_t id = 100;
-      verify(rep_frame_ != nullptr);
-      Coordinator* coord = rep_frame_->CreateCoordinator(cid++,
-                                                         Config::GetConfig(),
-                                                         0,
-                                                         nullptr,
-                                                         id++,
-                                                         nullptr);
-      coord->par_id_ = site_info_->partition_id_;
-      coord->loc_id_ = site_info_->locale_id;
-      created_coordinators_.push_back(coord);
-      coord->Submit(sp_m);
+      Submit(sp_log_entry.operation_, sp_log_entry.length);
       this->submit_num++;
     }
   } else {
     verify(0);
   }
-  finish_mutex.lock();
   if (n_current > 0) {
+    finish_mutex.lock();
     n_current--;
     if (n_current == 0) finish_cond.signal();
+    finish_mutex.unlock();
   }
-  finish_mutex.unlock();
 }
 
 void PaxosWorker::SetupService() {
@@ -193,13 +173,16 @@ void PaxosWorker::ShutDown() {
 }
 
 void PaxosWorker::WaitForSubmit() {
+  static int count = 0;
   finish_mutex.lock();
   while (n_current > 0) {
     Log_debug("wait for task, amount: %d", n_current);
     finish_cond.wait(finish_mutex);
+    ++count;
   }
   finish_mutex.unlock();
   Log_debug("finish task.");
+  Log_info("awake %d times.", count);
 }
 
 void PaxosWorker::Submit(const char* log_entry, int length) {
