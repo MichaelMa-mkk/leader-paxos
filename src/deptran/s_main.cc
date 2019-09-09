@@ -44,12 +44,12 @@ void server_launch_worker(vector<Config::SiteInfo>& server_sites) {
       worker->SetupCommo();
       // register callback
       if (worker->IsLeader())
-        // worker->register_apply_callback([&worker](char* log, int len) {
-        //   if (worker->submit_num >= worker->tot_num) return;
-        //   worker->Submit(log, len);
-        //   worker->submit_num++;
-        // });
-        worker->register_apply_callback(nullptr);
+        worker->register_apply_callback([&worker](const char* log, int len) {
+          if (worker->submit_num >= worker->tot_num) return;
+          worker->Submit(log, len);
+          worker->submit_num++;
+        });
+        // worker->register_apply_callback(nullptr);
       else
         worker->register_apply_callback([=](const char* log, int len) {});
       Log_info("site %d launched!", (int)site_info.id);

@@ -38,6 +38,8 @@ def options(opt):
                    default=False, action='store_true')
     opt.add_option('-D', '--disable-check-python', dest='disable_check_python',
                    default=False, action='store_true')
+    opt.add_option('-m', '--enable-mutrace-debug', dest='mutrace',
+                   default=False, action='store_true')
     opt.parse_args();
 
 def configure(conf):
@@ -222,7 +224,12 @@ def _enable_debug(conf):
         conf.env.append_value("CXXFLAGS", "-Wall -pthread -O0 -DNDEBUG -g "
                 "-ggdb -DLOG_LEVEL_AS_DEBUG -DLOG_DEBUG -rdynamic -fno-omit-frame-pointer".split())
     else:
-        conf.env.append_value("CXXFLAGS", "-g -pthread -O2 -DNDEBUG -DLOG_INFO".split())
+        if Options.options.mutrace:
+            Logs.pprint("PINK", "mutrace debugging enabled")
+            conf.env.append_value("CXXFLAGS", "-Wall -pthread -O0 -DNDEBUG -g "
+                "-ggdb -DLOG_INFO -rdynamic -fno-omit-frame-pointer".split())
+        else:
+            conf.env.append_value("CXXFLAGS", "-g -pthread -O2 -DNDEBUG -DLOG_INFO".split())
 
 def _properly_split(args):
     if args == None:

@@ -44,20 +44,19 @@ void PaxosWorker::Next(Marshallable& cmd) {
     if (this->callback_ != nullptr) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
       callback_(sp_log_entry.log_entry.c_str(), sp_log_entry.length);
-    } else if (this->submit_num < this->tot_num) {
+    } /* else if (this->submit_num < this->tot_num) {
       auto& sp_log_entry = dynamic_cast<LogEntry&>(cmd);
       Submit(sp_log_entry.log_entry.c_str(), sp_log_entry.length);
       this->submit_num++;
-    }
+    } */
   } else {
     verify(0);
   }
   if (n_current > 0) {
-    finish_mutex.lock();
     n_current--;
-    if (n_current == 0)
+    if (n_current == 0) {
       finish_cond.signal();
-    finish_mutex.unlock();
+    }
   }
 }
 
@@ -177,13 +176,13 @@ void PaxosWorker::ShutDown() {
 
 void PaxosWorker::WaitForSubmit() {
   static int count = 0;
-  finish_mutex.lock();
   while (n_current > 0) {
-    Log_debug("wait for task, amount: %d", n_current);
+    finish_mutex.lock();
+    // Log_debug("wait for task, amount: %d", n_current);
     finish_cond.wait(finish_mutex);
+    finish_mutex.unlock();
     ++count;
   }
-  finish_mutex.unlock();
   Log_debug("finish task.");
   Log_info("awake %d times.", count);
 }
@@ -200,9 +199,9 @@ void PaxosWorker::Submit(const char* log_entry, int length) {
 }
 
 inline void PaxosWorker::_Submit(shared_ptr<Marshallable> sp_m) {
-  finish_mutex.lock();
+  // finish_mutex.lock();
   n_current++;
-  finish_mutex.unlock();
+  // finish_mutex.unlock();
   static cooid_t cid = 0;
   static id_t id = 0;
   verify(rep_frame_ != nullptr);
