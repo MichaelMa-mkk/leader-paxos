@@ -32,10 +32,11 @@ MarshallDeputy::GetInitializer(int32_t type) {
 
 MarshallDeputy::MarContainer&
 MarshallDeputy::Initializers() {
-  mdi_mutex_g.lock();
-  if (!mc_)
+  if (!mc_) {
+    mdi_mutex_g.lock();
     mc_.reset(new MarshallDeputy::MarContainer);
-  mdi_mutex_g.unlock();
+    mdi_mutex_g.unlock();
+  }
   return *mc_;
 };
 
