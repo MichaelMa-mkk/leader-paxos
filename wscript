@@ -138,13 +138,21 @@ def build(bld):
               use="rrr simplerpc PYTHON")
 
 
-    bld.program(source=bld.path.ant_glob("src/deptran/*.cc "
+    bld.shlib(source=bld.path.ant_glob("src/deptran/*.cc "
                                          "src/deptran/*/*.cc "
                                          "src/bench/*/*.cc"),
                 target="deptran_server",
                 includes="src src/rrr src/deptran ",
                 uselib="YAML-CPP BOOST",
                 use="externc rrr memdb PTHREAD PROFILER RT")
+
+    bld.program(source=bld.path.ant_glob("src/run.cc "
+                                         "src/deptran/*/*.cc "
+                                         "src/bench/*/*.cc"),
+                target="microbench",
+                includes="src src/rrr src/deptran ",
+                uselib="YAML-CPP BOOST",
+                use="externc rrr memdb PTHREAD PROFILER RT deptran_server")
 
 #
 # waf helper functions
